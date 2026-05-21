@@ -2,7 +2,7 @@
 includes("lib/commonlibsf")
 
 -- set project constants
-set_project("commonlibsf-template")
+set_project("SeamlessGravJumps")
 set_version("0.0.0")
 set_license("GPL-3.0")
 set_languages("c++23")
@@ -13,12 +13,11 @@ add_rules("mode.debug", "mode.releasedbg")
 add_rules("plugin.vsxmake.autoupdate")
 
 -- define targets
-target("commonlibsf-template")
+target("SeamlessGravJumps")
     add_rules("commonlibsf.plugin", {
-        name = "commonlibsf-template",
-        author = "libxse",
-        description = "SFSE plugin template using CommonLibSF",
-        email = "user@site.com"
+        name = "SeamlessGravJumps",
+        author = "bobby",
+        description = "Remove grav jump loading screen!",
     })
 
     -- add src files

@@ -11,7 +11,7 @@ struct config
 			return;
 		}
 		this->DisableJumpCam = reader.GetBoolean("Config", "DisableJumpCam", true);
-		this->GravLanesSupport = reader.GetBoolean("Compatibility", "GraveLanesSupport", false);
+		this->GravLanesSupport = reader.GetBoolean("Compatibility", "GravLanesSupport", false);
 	}
 
 	bool DisableJumpCam = 1;

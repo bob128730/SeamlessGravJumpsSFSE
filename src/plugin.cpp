@@ -70,7 +70,8 @@ class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEv
 			location = event.Location->formEditorID.c_str();
 		}
 
-		if (pilot->formID == RE::PlayerCharacter::GetSingleton()->formID) 
+		if (pilot->formID == RE::PlayerCharacter::GetSingleton()->formID 
+			|| ship->HasKeyword((RE::BGSKeyword*)RE::TESForm::LookupByID(0x101da7))) //jade swan keyword
 		{
 			REX::INFO("Grav jump event");
 			REX::INFO("State: {}", event.aeState);

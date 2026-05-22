@@ -94,31 +94,52 @@ namespace hooks
 	using func_playerMoveTo_t = void(RE::PlayerCharacter*, void *, RE::TESObjectCELL*, RE::TESWorldSpace*, float*, void*);
 	func_playerMoveTo_t *original_playerMoveTo;
 
+	using func_shipHudHide_t = void();
+	func_shipHudHide_t* original_shipHudHide;
+
 	void hook_playerMoveTo(RE::PlayerCharacter* player, void *a2, RE::TESObjectCELL* cell, RE::TESWorldSpace* worldspace, float* a5, void* a6) 
 	{
 		if (jumpStarted) 
 		{
+			REX::INFO("Astrogate / Grav lanes grav jump called");
 			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
 			manualLoadSystem(ship);
+
 			jumpStarted = false;
 		}
 		else 
 		{
+			REX::INFO("Non astrogate / grav lanes MoveTo called");
 			original_playerMoveTo(player, a2, cell, worldspace, a5, a6);
 		}
+	}
+
+	// For some reason when the mod is active grav lanes & astrogate can't show the ship hud after jumping. I have no idea why
+	// So i'll just prevent them from hiding it for now.
+	void hook_shipHudHide() 
+	{
+		if (jumpStarted)
+			return;
+
+		return original_shipHudHide();
 	}
 
 	void install() 
 	{
 		//moveTo papyrus call
 		uintptr_t addr = REL::Relocation<uintptr_t>( REL::ID(118183)).address();
-		uintptr_t MoveTo = addr + 0xbb6;
+		uintptr_t addr2 = REL::Relocation<uintptr_t>(REL::ID(117400)).address();
+
+
+		uintptr_t MoveToCall = addr + 0xbb6;
+		uintptr_t shipHudHideCall = addr2 + 0x56;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
 		tramp.create(64);
 
 		//GRAV LANES SUPPORT
-		original_playerMoveTo = (func_playerMoveTo_t *)tramp.write_call<5>(MoveTo, hook_playerMoveTo);
+		original_playerMoveTo = (func_playerMoveTo_t *)tramp.write_call<5>(MoveToCall, hook_playerMoveTo);
+		original_shipHudHide = (func_shipHudHide_t*)tramp.write_call<5>(shipHudHideCall, hook_shipHudHide);
 	}
 }
 

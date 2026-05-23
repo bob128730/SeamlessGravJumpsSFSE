@@ -2,12 +2,41 @@
 #include "config.h"
 
 bool jumpStarted = false;
+bool jumpComplete = false;
 config settings;
+RE::BGSLocation* prevLocation;
+RE::BGSLocation* newLocation;
+
+void updateDiscoveryInfo(RE::TESObjectREFR* ship) 
+{
+
+	using func_updateDiscoveredStatus_t = void* (RE::Actor*, RE::BGSLocation*);
+	REL::Relocation<func_updateDiscoveredStatus_t>updatePlanetDiscoveryStatus{ REL::ID(102968) };
+	updatePlanetDiscoveryStatus(BobbyRE::Spaceship::GetPilot(ship), newLocation);
+
+	REL::Relocation<uintptr_t*>unkGlobal{ REL::ID(938414) };
+
+	using func_updateStarDiscoveryStatus_t = void* (void*, uint32_t, bool);
+	REL::Relocation<func_updateStarDiscoveryStatus_t>updateStarDiscoveryStatus{ REL::ID(102650) };
+
+	BobbyRE::starInfo* currentStarInfo = *(BobbyRE::starInfo**)(*unkGlobal.get() + 0x58);
+
+	updateStarDiscoveryStatus(nullptr, currentStarInfo->FormID, 1);
+}
 
 void manualLoadSystem(RE::TESObjectREFR* ship) 
 {
 	using func_getParentLocation_t = RE::BGSLocation* (RE::TESObjectREFR*);
 	REL::Relocation<func_getParentLocation_t>getParentLocation{ REL::ID(63412) };
+
+	using func_loadSystem_t = int(RE::TESObjectREFR*, RE::TESObjectCELL*, bool, double);
+	REL::Relocation<func_loadSystem_t>loadSystem{ REL::ID(102641) };
+
+	prevLocation = getParentLocation(ship);
+
+	loadSystem(ship, ship->parentCell, 0, 0);
+
+	newLocation = getParentLocation(ship);
 
 	using func_unkfunc_t = void* (RE::TESObjectREFR**, RE::BGSLocation*, RE::BGSLocation*);
 	REL::Relocation<func_unkfunc_t>unkfunc{ REL::ID(64046) };
@@ -21,15 +50,7 @@ void manualLoadSystem(RE::TESObjectREFR* ship)
 	using func_unkfunc4_t = void* (void*, uint32_t, void*);
 	REL::Relocation<func_unkfunc4_t>unkfunc4{ REL::ID(72962) };
 
-	using func_loadSystem_t = int(RE::TESObjectREFR*, RE::TESObjectCELL*, bool, double);
-	REL::Relocation<func_loadSystem_t>loadSystem{ REL::ID(102641) };
-
-	RE::BGSLocation* prevLocation = getParentLocation(ship);
-
-	loadSystem(ship, ship->parentCell, 0, 0);
-
-	RE::BGSLocation* newLocation = getParentLocation(ship);
-	if (prevLocation != newLocation) 
+	if (prevLocation != newLocation)
 	{
 		_InterlockedExchangeAdd64((volatile long long*)&ship->refCount, 0x80000200001);
 		unkfunc(&ship, prevLocation, newLocation);
@@ -40,19 +61,6 @@ void manualLoadSystem(RE::TESObjectREFR* ship)
 
 		unkfunc4(v206, 4, v207);
 	}
-
-	using func_updateDiscoveredStatus_t = void*(RE::Actor *, RE::BGSLocation *);
-	REL::Relocation<func_updateDiscoveredStatus_t>updatePlanetDiscoveryStatus{ REL::ID(102968) };
-	updatePlanetDiscoveryStatus(BobbyRE::Spaceship::GetPilot(ship), newLocation);
-
-	REL::Relocation<uintptr_t*>unkGlobal{ REL::ID(938414) };
-
-	using func_updateStarDiscoveryStatus_t = void* (void*, uint32_t, bool);
-	REL::Relocation<func_updateStarDiscoveryStatus_t>updateStarDiscoveryStatus{ REL::ID(102650) };
-
-	BobbyRE::starInfo* currentStarInfo = *(BobbyRE::starInfo**)(*unkGlobal.get() + 0x58);
-
-	updateStarDiscoveryStatus(nullptr, currentStarInfo->FormID, 1);
 }
 
 class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEvent> 
@@ -79,9 +87,9 @@ class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEv
 
 			jumpStarted = true;
 
-			if (event.aeState == 2) {
-				manualLoadSystem(ship);
-				REX::INFO("Manual jump success");
+			if (event.aeState == 2) 
+			{
+				jumpComplete = true;
 			}
 		}
 
@@ -97,6 +105,9 @@ namespace hooks
 	using func_shipHudHide_t = void();
 	func_shipHudHide_t* original_shipHudHide;
 
+	using func_playerShipUpdate_t = void(RE::TESObjectREFR*, float);
+	func_playerShipUpdate_t* original_playerShipUpdate;
+
 	void hook_playerMoveTo(RE::PlayerCharacter* player, void *a2, RE::TESObjectCELL* cell, RE::TESWorldSpace* worldspace, float* a5, void* a6) 
 	{
 		if (jumpStarted) 
@@ -104,6 +115,7 @@ namespace hooks
 			REX::INFO("Astrogate / Grav lanes grav jump called");
 			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
 			manualLoadSystem(ship);
+			updateDiscoveryInfo(ship);
 
 			jumpStarted = false;
 		}
@@ -124,22 +136,40 @@ namespace hooks
 		return original_shipHudHide();
 	}
 
+	void hook_playerShipUpdate(RE::TESObjectREFR* ship, float dt) 
+	{
+
+		if (jumpComplete) {
+			jumpComplete = false;
+			manualLoadSystem(RE::PlayerCharacter::GetSingleton()->GetSpaceship());
+			updateDiscoveryInfo(RE::PlayerCharacter::GetSingleton()->GetSpaceship());
+			REX::INFO("Manual jump success");
+		}
+		original_playerShipUpdate(ship, dt);
+
+	}
+
 	void install() 
 	{
 		//moveTo papyrus call
 		uintptr_t addr = REL::Relocation<uintptr_t>( REL::ID(118183)).address();
 		uintptr_t addr2 = REL::Relocation<uintptr_t>(REL::ID(117400)).address();
+		uintptr_t addr3 = REL::Relocation<uintptr_t>(REL::ID(97772)).address();
 
 
 		uintptr_t MoveToCall = addr + 0xbb6;
 		uintptr_t shipHudHideCall = addr2 + 0x56;
+		uintptr_t playerShipUpdateCall = addr3 + 0x68;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
 		tramp.create(64);
 
-		//GRAV LANES SUPPORT
-		original_playerMoveTo = (func_playerMoveTo_t *)tramp.write_call<5>(MoveToCall, hook_playerMoveTo);
-		original_shipHudHide = (func_shipHudHide_t*)tramp.write_call<5>(shipHudHideCall, hook_shipHudHide);
+		original_playerShipUpdate = (func_playerShipUpdate_t*)tramp.write_call<5>(playerShipUpdateCall, hook_playerShipUpdate);
+
+		if (settings.GravLanesSupport) {
+			original_playerMoveTo = (func_playerMoveTo_t*)tramp.write_call<5>(MoveToCall, hook_playerMoveTo);
+			original_shipHudHide = (func_shipHudHide_t*)tramp.write_call<5>(shipHudHideCall, hook_shipHudHide);
+		}
 	}
 }
 
@@ -147,6 +177,7 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 {
 	if (message->type == SFSE::MessagingInterface::kPostDataLoad) 
 	{
+		REX::INFO("Init");
 		settings.load();
 
 		GravJumpEventSink* GravJumpSink = new GravJumpEventSink();
@@ -177,10 +208,6 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 			VirtualProtect(shouldStartGravCam, 5, OldProtect, &OldProtect);
 		}
 
-
-		if (settings.GravLanesSupport) 
-		{
-			hooks::install();
-		}	
+		hooks::install();
 	}
 }

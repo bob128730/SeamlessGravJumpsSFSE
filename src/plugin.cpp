@@ -65,7 +65,7 @@ void manualLoadSystem(RE::TESObjectREFR* ship)
 
 class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEvent> 
 {
-	RE::BSEventNotifyControl ProcessEvent(const BobbyRE::Spaceship::GravJumpEvent& event, RE::BSTEventSource<BobbyRE::Spaceship::GravJumpEvent>* a_source) 
+	RE::BSEventNotifyControl ProcessEvent(const BobbyRE::Spaceship::GravJumpEvent& event, RE::BSTEventSource<BobbyRE::Spaceship::GravJumpEvent>* a_source)
 	{
 		RE::TESObjectREFR* ship = event.source->AsReference();
 
@@ -73,13 +73,12 @@ class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEv
 
 		const char* location = "";
 
-		if (event.Location) 
+		if (event.Location)
 		{
 			location = event.Location->formEditorID.c_str();
 		}
 
-		if (pilot->formID == RE::PlayerCharacter::GetSingleton()->formID 
-			|| ship->HasKeyword((RE::BGSKeyword*)RE::TESForm::LookupByID(0x101da7))) //jade swan keyword
+		if (pilot->formID == RE::PlayerCharacter::GetSingleton()->formID)
 		{
 			REX::INFO("Grav jump event");
 			REX::INFO("State: {}", event.aeState);
@@ -87,10 +86,15 @@ class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEv
 
 			jumpStarted = true;
 
-			if (event.aeState == 2) 
+			if (event.aeState == 2)
 			{
 				jumpComplete = true;
 			}
+		}
+		else if (ship->HasKeyword((RE::BGSKeyword*)RE::TESForm::LookupByID(0x101da7))) //jade swan keyword)
+		{
+			manualLoadSystem(ship);
+			updateDiscoveryInfo(ship);
 		}
 
 		return RE::BSEventNotifyControl::kContinue;
@@ -155,7 +159,6 @@ namespace hooks
 		uintptr_t addr = REL::Relocation<uintptr_t>( REL::ID(118183)).address();
 		uintptr_t addr2 = REL::Relocation<uintptr_t>(REL::ID(117400)).address();
 		uintptr_t addr3 = REL::Relocation<uintptr_t>(REL::ID(97772)).address();
-
 
 		uintptr_t MoveToCall = addr + 0xbb6;
 		uintptr_t shipHudHideCall = addr2 + 0x56;

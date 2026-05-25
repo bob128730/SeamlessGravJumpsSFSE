@@ -93,8 +93,12 @@ class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEv
 		}
 		else if (ship->HasKeyword((RE::BGSKeyword*)RE::TESForm::LookupByID(0x101da7))) //jade swan keyword)
 		{
-			manualLoadSystem(ship);
-			updateDiscoveryInfo(ship);
+			if (event.aeState == 2) 
+			{
+				manualLoadSystem(ship);
+				updateDiscoveryInfo(ship);
+				jumpStarted = false;
+			}
 		}
 
 		return RE::BSEventNotifyControl::kContinue;
@@ -111,6 +115,9 @@ namespace hooks
 
 	using func_playerShipUpdate_t = void(RE::TESObjectREFR*, float);
 	func_playerShipUpdate_t* original_playerShipUpdate;
+
+	using func_registerForDistanceLessThanEvent_t = void*(void *, void *, void *, void *, bool, bool, float, uint32_t);
+	func_registerForDistanceLessThanEvent_t* original_registerForDistanceLessThanEvent;
 
 	void hook_playerMoveTo(RE::PlayerCharacter* player, void *a2, RE::TESObjectCELL* cell, RE::TESWorldSpace* worldspace, float* a5, void* a6) 
 	{
@@ -142,27 +149,39 @@ namespace hooks
 
 	void hook_playerShipUpdate(RE::TESObjectREFR* ship, float dt) 
 	{
-
 		if (jumpComplete) {
 			jumpComplete = false;
-			manualLoadSystem(RE::PlayerCharacter::GetSingleton()->GetSpaceship());
-			updateDiscoveryInfo(RE::PlayerCharacter::GetSingleton()->GetSpaceship());
+			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
+			manualLoadSystem(ship);
+			updateDiscoveryInfo(ship);
 			REX::INFO("Manual jump success");
 		}
 		original_playerShipUpdate(ship, dt);
 
 	}
 
+	// Astrogate calls this when using the arrive at star option, so we know to re enable the moveTo hook
+	void* hook_registerForDistanceLessThanEvent(void* a1, void* a2, void* a3, void* a4, bool a5, float distance, uint32_t a7) 
+	{
+		if (distance == 375000000.0) 
+		{
+			REX::INFO("Astrogate arrive at star option detected");
+			jumpStarted = true;
+		}
+		return original_registerForDistanceLessThanEvent(a1, a2, a3, a4, a5, a5, distance, a7);
+	}
+
 	void install() 
 	{
-		//moveTo papyrus call
 		uintptr_t addr = REL::Relocation<uintptr_t>( REL::ID(118183)).address();
 		uintptr_t addr2 = REL::Relocation<uintptr_t>(REL::ID(117400)).address();
 		uintptr_t addr3 = REL::Relocation<uintptr_t>(REL::ID(97772)).address();
+		uintptr_t addr4 = REL::Relocation<uintptr_t>(REL::ID(117757)).address();
 
 		uintptr_t MoveToCall = addr + 0xbb6;
 		uintptr_t shipHudHideCall = addr2 + 0x56;
 		uintptr_t playerShipUpdateCall = addr3 + 0x68;
+		uintptr_t registerForDistanceLessThanEventCall = addr4 + 0x1bd;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
 		tramp.create(64);
@@ -172,6 +191,7 @@ namespace hooks
 		if (settings.GravLanesSupport) {
 			original_playerMoveTo = (func_playerMoveTo_t*)tramp.write_call<5>(MoveToCall, hook_playerMoveTo);
 			original_shipHudHide = (func_shipHudHide_t*)tramp.write_call<5>(shipHudHideCall, hook_shipHudHide);
+			original_registerForDistanceLessThanEvent = (func_registerForDistanceLessThanEvent_t*)tramp.write_call<5>(registerForDistanceLessThanEventCall, hook_registerForDistanceLessThanEvent);
 		}
 	}
 }

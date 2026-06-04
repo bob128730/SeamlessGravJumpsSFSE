@@ -184,25 +184,6 @@ namespace hooks
 		return original_registerForDistanceLessThanEvent(a1, a2, a3, a4, a5, distance, a7);
 	}
 
-
-	bool hook_playerFastTravel(RE::PlayerCharacter* a1, void* a2, RE::NiPoint3* a3, RE::TESObjectCELL* a4, bool a5, bool a6, bool a7, bool a8, uint16_t a9)
-	{
-
-		using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
-		REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
-		if (jumpStarted) {
-			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
-			manualLoadSystem(ship);
-			attatchObjectToCell(a4, ship, 0, 0);
-			jumpStarted = false;
-			return 1;
-		}
-		else
-		{
-			return original_playerFastTravel(a1, a2, a3, a4, a5, a6, a7, a8, a9);
-		}
-	}
-
 	void install() 
 	{
 		uintptr_t addr = REL::Relocation<uintptr_t>( REL::ID(118183)).address();

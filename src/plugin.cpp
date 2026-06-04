@@ -91,7 +91,7 @@ class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEv
 				jumpComplete = true;
 			}
 		}
-		else if (ship->HasKeyword((RE::BGSKeyword*)RE::TESForm::LookupByID(0x101da7))) //jade swan keyword)
+		else if (ship->HasKeyword((RE::BGSKeyword*)RE::TESForm::LookupByID(0x101da7))) //jade swan keyword
 		{
 			if (event.aeState == 2) 
 			{
@@ -116,7 +116,7 @@ namespace hooks
 	using func_playerShipUpdate_t = void(RE::TESObjectREFR*, float);
 	func_playerShipUpdate_t* original_playerShipUpdate;
 
-	using func_registerForDistanceLessThanEvent_t = void*(void *, void *, void *, void *, bool, bool, float, uint32_t);
+	using func_registerForDistanceLessThanEvent_t = void*(void *, void *, void *, void *, bool, float, uint32_t);
 	func_registerForDistanceLessThanEvent_t* original_registerForDistanceLessThanEvent;
 
 	void hook_playerMoveTo(RE::PlayerCharacter* player, void *a2, RE::TESObjectCELL* cell, RE::TESWorldSpace* worldspace, float* a5, void* a6) 
@@ -126,6 +126,12 @@ namespace hooks
 			REX::INFO("Astrogate / Grav lanes grav jump called");
 			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
 			manualLoadSystem(ship);
+
+			using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
+			REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
+			RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
+
+			attatchObjectToCell(GalaxyCell, ship, 0, 0);
 			updateDiscoveryInfo(ship);
 
 			jumpStarted = false;
@@ -153,6 +159,13 @@ namespace hooks
 			jumpComplete = false;
 			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
 			manualLoadSystem(ship);
+
+			using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
+			REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
+			RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
+
+			attatchObjectToCell(GalaxyCell, ship, 0, 0);
+
 			updateDiscoveryInfo(ship);
 			REX::INFO("Manual jump success");
 		}
@@ -163,12 +176,31 @@ namespace hooks
 	// Astrogate calls this when using the arrive at star option, so we know to re enable the moveTo hook
 	void* hook_registerForDistanceLessThanEvent(void* a1, void* a2, void* a3, void* a4, bool a5, float distance, uint32_t a7) 
 	{
-		if (distance == 375000000.0) 
+		if (distance == 375000000.0)
 		{
 			REX::INFO("Astrogate arrive at star option detected");
 			jumpStarted = true;
 		}
-		return original_registerForDistanceLessThanEvent(a1, a2, a3, a4, a5, a5, distance, a7);
+		return original_registerForDistanceLessThanEvent(a1, a2, a3, a4, a5, distance, a7);
+	}
+
+
+	bool hook_playerFastTravel(RE::PlayerCharacter* a1, void* a2, RE::NiPoint3* a3, RE::TESObjectCELL* a4, bool a5, bool a6, bool a7, bool a8, uint16_t a9)
+	{
+
+		using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
+		REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
+		if (jumpStarted) {
+			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
+			manualLoadSystem(ship);
+			attatchObjectToCell(a4, ship, 0, 0);
+			jumpStarted = false;
+			return 1;
+		}
+		else
+		{
+			return original_playerFastTravel(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+		}
 	}
 
 	void install() 

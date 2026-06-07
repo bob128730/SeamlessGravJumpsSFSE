@@ -124,16 +124,7 @@ namespace hooks
 		if (jumpStarted) 
 		{
 			REX::INFO("Astrogate / Grav lanes grav jump called");
-			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
-			manualLoadSystem(ship);
-
-			using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
-			REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
-			RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
-
-			attatchObjectToCell(GalaxyCell, ship, 0, 0);
-			updateDiscoveryInfo(ship);
-
+			jumpComplete = true;
 			jumpStarted = false;
 		}
 		else 
@@ -153,24 +144,30 @@ namespace hooks
 		return original_shipHudHide();
 	}
 
+	//loading too fast seems to cause issues
+	float timer = 0.15;
 	void hook_playerShipUpdate(RE::TESObjectREFR* ship, float dt) 
 	{
 		if (jumpComplete) {
-			jumpComplete = false;
-			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
-			manualLoadSystem(ship);
+			timer -= dt;
+			if (timer <= 0)
+			{
+				jumpComplete = false;
+				timer = 0.15;
+				RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
+				manualLoadSystem(ship);
 
-			using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
-			REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
-			RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
+				using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
+				REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
+				RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
 
-			attatchObjectToCell(GalaxyCell, ship, 0, 0);
+				attatchObjectToCell(GalaxyCell, ship, 0, 0);
 
-			updateDiscoveryInfo(ship);
-			REX::INFO("Manual jump success");
+				updateDiscoveryInfo(ship);
+				REX::INFO("Manual jump success");
+			}
 		}
 		original_playerShipUpdate(ship, dt);
-
 	}
 
 	// Astrogate calls this when using the arrive at star option, so we know to re enable the moveTo hook

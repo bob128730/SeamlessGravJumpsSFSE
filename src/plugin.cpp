@@ -164,6 +164,7 @@ namespace hooks
 				attatchObjectToCell(GalaxyCell, ship, 0, 0);
 
 				updateDiscoveryInfo(ship);
+
 				REX::INFO("Manual jump success");
 			}
 		}

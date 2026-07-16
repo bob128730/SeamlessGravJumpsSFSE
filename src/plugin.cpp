@@ -1,8 +1,15 @@
 #include "BobbyRE.h"
 #include "config.h"
 
-bool jumpStarted = false;
-bool jumpComplete = false;
+#include <atomic>
+
+//grav jump events can fire off the game thread, so the flags shared with the
+//update hook have to be atomic
+std::atomic<bool> jumpStarted = false;
+std::atomic<bool> jumpComplete = false;
+//set when the engine reaches the point in initiateGravJumpCompleted where it
+//would have started the vanilla load, so we never load earlier than vanilla would
+std::atomic<bool> loadPointReached = false;
 config settings;
 RE::BGSLocation* prevLocation;
 RE::BGSLocation* newLocation;
@@ -93,11 +100,12 @@ class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEv
 		}
 		else if (ship->HasKeyword((RE::BGSKeyword*)RE::TESForm::LookupByID(0x101da7))) //jade swan keyword
 		{
-			if (event.aeState == 2) 
+			if (event.aeState == 2)
 			{
 				manualLoadSystem(ship);
 				updateDiscoveryInfo(ship);
 				jumpStarted = false;
+				loadPointReached = false; //this jump's load point is not for the player path
 			}
 		}
 
@@ -121,9 +129,11 @@ namespace hooks
 
 	void hook_playerMoveTo(RE::PlayerCharacter* player, void *a2, RE::TESObjectCELL* cell, RE::TESWorldSpace* worldspace, float* a5, void* a6) 
 	{
-		if (jumpStarted) 
+		if (jumpStarted)
 		{
 			REX::INFO("Astrogate / Grav lanes grav jump called");
+			//this MoveTo call is where vanilla would have loaded, so it is the load point
+			loadPointReached = true;
 			jumpComplete = true;
 			jumpStarted = false;
 		}
@@ -144,29 +154,31 @@ namespace hooks
 		return original_shipHudHide();
 	}
 
-	//loading too fast seems to cause issues
-	float timer = 0.15;
-	void hook_playerShipUpdate(RE::TESObjectREFR* ship, float dt) 
+	//replaces the engine's addCellToLoader call inside initiateGravJumpCompleted:
+	//swallows the vanilla load and marks that the engine reached the point where
+	//loading is safe to start
+	void hook_arrivalLoadPoint()
 	{
-		if (jumpComplete) {
-			timer -= dt;
-			if (timer <= 0)
-			{
-				jumpComplete = false;
-				timer = 0.15;
-				RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
-				manualLoadSystem(ship);
+		loadPointReached = true;
+	}
 
-				using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
-				REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
-				RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
+	void hook_playerShipUpdate(RE::TESObjectREFR* ship, float dt)
+	{
+		if (jumpComplete && loadPointReached) {
+			jumpComplete = false;
+			loadPointReached = false;
+			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
+			manualLoadSystem(ship);
 
-				attatchObjectToCell(GalaxyCell, ship, 0, 0);
+			using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
+			REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
+			RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
 
-				updateDiscoveryInfo(ship);
+			attatchObjectToCell(GalaxyCell, ship, 0, 0);
 
-				REX::INFO("Manual jump success");
-			}
+			updateDiscoveryInfo(ship);
+
+			REX::INFO("Manual jump success");
 		}
 		original_playerShipUpdate(ship, dt);
 	}
@@ -194,8 +206,13 @@ namespace hooks
 		uintptr_t playerShipUpdateCall = addr3 + 0x68;
 		uintptr_t registerForDistanceLessThanEventCall = addr4 + 0x1bd;
 
+		//stop normal loading, and record when the engine reaches its load point
+		uintptr_t initiateGravJumpCompleted = REL::Relocation<uintptr_t>(REL::ID(119833)).address();
+		uintptr_t addCellToLoaderCall = initiateGravJumpCompleted + 0x262;
+
 		REL::Trampoline &tramp = REL::GetTrampoline();
 
+		tramp.write_call<5>(addCellToLoaderCall, hook_arrivalLoadPoint);
 		original_playerShipUpdate = (func_playerShipUpdate_t*)tramp.write_call<5>(playerShipUpdateCall, hook_playerShipUpdate);
 
 		if (settings.GravLanesSupport) {
@@ -219,18 +236,8 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 		auto source = GravJumpEvent_GetSource();
 		source->RegisterSink(GravJumpSink);
 
-		//stop normal loading
-		uintptr_t initiateGravJumpCompleted = REL::Relocation<uintptr_t>(REL::ID(119833)).address();
-		void* addCellToLoaderCall = (void *)(initiateGravJumpCompleted + 0x262);
-
-		int8_t nopcall[5] = { 0x90, 0x90, 0x90, 0x90, 0x90 };
-
 		DWORD OldProtect;
-		VirtualProtect(addCellToLoaderCall, 5, PAGE_EXECUTE_READWRITE, &OldProtect);
-		memcpy_s(addCellToLoaderCall, 5, nopcall, 5);
-		VirtualProtect(addCellToLoaderCall, 5, OldProtect, &OldProtect);
-
-		if (settings.DisableJumpCam) 
+		if (settings.DisableJumpCam)
 		{
 			uintptr_t initiateGravJumpSequence = REL::Relocation<uintptr_t>(REL::ID(119839)).address();
 			void* shouldStartGravCam = (void*)(initiateGravJumpSequence + 0x4e4);

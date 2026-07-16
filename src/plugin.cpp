@@ -195,7 +195,6 @@ namespace hooks
 		uintptr_t registerForDistanceLessThanEventCall = addr4 + 0x1bd;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
-		tramp.create(64);
 
 		original_playerShipUpdate = (func_playerShipUpdate_t*)tramp.write_call<5>(playerShipUpdateCall, hook_playerShipUpdate);
 

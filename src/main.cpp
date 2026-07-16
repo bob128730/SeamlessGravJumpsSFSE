@@ -2,7 +2,7 @@
 
 SFSE_PLUGIN_PRELOAD(const SFSE::PreLoadInterface* a_sfse)
 {
-	SFSE::Init(a_sfse);
+	SFSE::Init(a_sfse, { .trampoline = true, .trampolineSize = 64 });
 
 	return true;
 }

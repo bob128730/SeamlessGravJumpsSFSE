@@ -98,6 +98,15 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 
 			if (event.state == 2)
 			{
+				manualLoadSystem(ship);
+				updateDiscoveryInfo(ship);
+
+				using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
+				REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
+				RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
+
+				attatchObjectToCell(GalaxyCell, ship, 0, 0);
+
 				jumpComplete = true;
 			}
 		}
@@ -134,7 +143,16 @@ namespace hooks
 		if (jumpStarted) 
 		{
 			REX::INFO("Astrogate / Grav lanes grav jump called");
-			jumpComplete = true;
+			RE::TESObjectREFR* ship = player->GetSpaceship();
+			manualLoadSystem(ship);
+			updateDiscoveryInfo(ship);
+
+			using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
+			REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
+			RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
+
+			attatchObjectToCell(GalaxyCell, ship, 0, 0);
+
 			jumpStarted = false;
 		}
 		else 
@@ -154,33 +172,6 @@ namespace hooks
 		return original_shipHudHide();
 	}
 
-	//loading too fast seems to cause issues
-	float timer = 0.15;
-	void hook_playerShipUpdate(RE::TESObjectREFR* ship, float dt) 
-	{
-		if (jumpComplete) {
-			timer -= dt;
-			if (timer <= 0)
-			{
-				jumpComplete = false;
-				timer = 0.15;
-				RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
-				manualLoadSystem(ship);
-
-				using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
-				REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
-				RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
-
-				attatchObjectToCell(GalaxyCell, ship, 0, 0);
-
-				updateDiscoveryInfo(ship);
-
-				REX::INFO("Manual jump success");
-			}
-		}
-		original_playerShipUpdate(ship, dt);
-	}
-
 	// Astrogate calls this when using the arrive at star option, so we know to re enable the moveTo hook
 	void* hook_registerForDistanceLessThanEvent(void* a1, void* a2, void* a3, void* a4, bool a5, float distance, uint32_t a7) 
 	{
@@ -196,18 +187,14 @@ namespace hooks
 	{
 		uintptr_t addr = REL::Relocation<uintptr_t>( REL::ID(118183)).address();
 		uintptr_t addr2 = REL::Relocation<uintptr_t>(REL::ID(117400)).address();
-		uintptr_t addr3 = REL::Relocation<uintptr_t>(REL::ID(97772)).address();
 		uintptr_t addr4 = REL::Relocation<uintptr_t>(REL::ID(117757)).address();
 
 		uintptr_t MoveToCall = addr + 0xbb6;
 		uintptr_t shipHudHideCall = addr2 + 0x56;
-		uintptr_t playerShipUpdateCall = addr3 + 0x68;
 		uintptr_t registerForDistanceLessThanEventCall = addr4 + 0x1bd;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
-		tramp.create(64);
-
-		original_playerShipUpdate = (func_playerShipUpdate_t*)tramp.write_call<5>(playerShipUpdateCall, hook_playerShipUpdate);
+		tramp.create(128);
 
 		if (settings.GravLanesSupport) {
 			original_playerMoveTo = (func_playerMoveTo_t*)tramp.write_call<5>(MoveToCall, hook_playerMoveTo);

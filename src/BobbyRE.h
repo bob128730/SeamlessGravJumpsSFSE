@@ -2,23 +2,6 @@
 
 namespace BobbyRE 
 {
-	namespace Spaceship 
-	{
-		struct GravJumpEvent : RE::Spaceship::GravJumpEvent 
-		{
-			RE::NiPointer<RE::TESObjectREFR> source; //source ship
-			int aeState; // State { Initiated = 0, AnimStarted = 1, Completed = 2, Failed = 3 }
-			RE::NiPointer<RE::BGSLocation> Location; 
-		};
-
-		RE::Actor* GetPilot(RE::TESObjectREFR* ship) 
-		{
-			using func_t = decltype(&GetPilot);
-			static REL::Relocation<func_t> func{ REL::ID(119876) };
-			return func(ship);
-		}
-	}
-
 	struct PositionPlayerEvent 
 	{
 		uint32_t unk;

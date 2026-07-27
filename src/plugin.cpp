@@ -12,7 +12,7 @@ void updateDiscoveryInfo(RE::TESObjectREFR* ship)
 
 	using func_updateDiscoveredStatus_t = void* (RE::Actor*, RE::BGSLocation*);
 	REL::Relocation<func_updateDiscoveredStatus_t>updatePlanetDiscoveryStatus{ REL::ID(102968) };
-	updatePlanetDiscoveryStatus(BobbyRE::Spaceship::GetPilot(ship), newLocation);
+	updatePlanetDiscoveryStatus(ship->GetSpaceshipPilot(), newLocation);
 
 	REL::Relocation<uintptr_t*>unkGlobal{ REL::ID(938414) };
 
@@ -26,24 +26,20 @@ void updateDiscoveryInfo(RE::TESObjectREFR* ship)
 
 void manualLoadSystem(RE::TESObjectREFR* ship) 
 {
-	using func_getParentLocation_t = RE::BGSLocation* (RE::TESObjectREFR*);
-	REL::Relocation<func_getParentLocation_t>getParentLocation{ REL::ID(63412) };
-
 	using func_loadSystem_t = int(RE::TESObjectREFR*, RE::TESObjectCELL*, bool, double);
 	REL::Relocation<func_loadSystem_t>loadSystem{ REL::ID(102641) };
 
 	using func_removeObjectFromCell_t = void(RE::TESObjectCELL*, RE::TESObjectREFR*, bool);
 	REL::Relocation<func_removeObjectFromCell_t>removeObjectFromCell{ REL::ID(62697) };
 
-
 	RE::TESObjectCELL* parentCell = ship->parentCell;
 	removeObjectFromCell(parentCell, ship, false);
 
-	prevLocation = getParentLocation(ship);
+	prevLocation = ship->GetCurrentLocation();
 
 	loadSystem(ship, ship->parentCell, 0, 0);
 
-	newLocation = getParentLocation(ship);
+	newLocation = ship->GetCurrentLocation();
 
 	RE::NiPoint3 a3{ 0,0,0 };
 
@@ -77,37 +73,37 @@ void manualLoadSystem(RE::TESObjectREFR* ship)
 	}
 }
 
-class GravJumpEventSink : public RE::BSTEventSink<BobbyRE::Spaceship::GravJumpEvent> 
+class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent> 
 {
-	RE::BSEventNotifyControl ProcessEvent(const BobbyRE::Spaceship::GravJumpEvent& event, RE::BSTEventSource<BobbyRE::Spaceship::GravJumpEvent>* a_source)
+	RE::BSEventNotifyControl ProcessEvent(const RE::Spaceship::GravJumpEvent& event, RE::BSTEventSource<RE::Spaceship::GravJumpEvent>* a_source)
 	{
-		RE::TESObjectREFR* ship = event.source->AsReference();
+		RE::TESObjectREFR* ship = event.ship.get();
 
-		RE::Actor* pilot = BobbyRE::Spaceship::GetPilot(ship);
+		RE::Actor* pilot = ship->GetSpaceshipPilot();
 
 		const char* location = "";
 
-		if (event.Location)
+		if (event.destination)
 		{
-			location = event.Location->formEditorID.c_str();
+			location = event.destination->formEditorID.c_str();
 		}
 
 		if (pilot->formID == RE::PlayerCharacter::GetSingleton()->formID)
 		{
 			REX::INFO("Grav jump event");
-			REX::INFO("State: {}", event.aeState);
+			REX::INFO("State: {}", event.state);
 			REX::INFO("Jump destination: {}", location);
 
 			jumpStarted = true;
 
-			if (event.aeState == 2)
+			if (event.state == 2)
 			{
 				jumpComplete = true;
 			}
 		}
 		else if (ship->HasKeyword((RE::BGSKeyword*)RE::TESForm::LookupByID(0x101da7))) //jade swan keyword
 		{
-			if (event.aeState == 2) 
+			if (event.state == 2) 
 			{
 				manualLoadSystem(ship);
 				updateDiscoveryInfo(ship);
@@ -229,9 +225,7 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 		settings.load();
 
 		GravJumpEventSink* GravJumpSink = new GravJumpEventSink();
-		using GetFn = RE::BSTGlobalEvent::EventSource<BobbyRE::Spaceship::GravJumpEvent>* (*)();
-		auto GravJumpEvent_GetSource = REL::Relocation<GetFn>(REL::ID(93876));
-		auto source = GravJumpEvent_GetSource();
+		auto source = RE::Spaceship::GravJumpEvent::GetEventSource();
 		source->RegisterSink(GravJumpSink);
 
 		//stop normal loading

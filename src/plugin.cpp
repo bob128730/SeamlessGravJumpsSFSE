@@ -32,11 +32,25 @@ void manualLoadSystem(RE::TESObjectREFR* ship)
 	using func_loadSystem_t = int(RE::TESObjectREFR*, RE::TESObjectCELL*, bool, double);
 	REL::Relocation<func_loadSystem_t>loadSystem{ REL::ID(102641) };
 
+	using func_removeObjectFromCell_t = void(RE::TESObjectCELL*, RE::TESObjectREFR*, bool);
+	REL::Relocation<func_removeObjectFromCell_t>removeObjectFromCell{ REL::ID(62697) };
+
+
+	RE::TESObjectCELL* parentCell = ship->parentCell;
+	removeObjectFromCell(parentCell, ship, false);
+
 	prevLocation = getParentLocation(ship);
 
 	loadSystem(ship, ship->parentCell, 0, 0);
 
 	newLocation = getParentLocation(ship);
+
+	RE::NiPoint3 a3{ 0,0,0 };
+
+	using func_loadSystem2_t = void* (RE::TES*, RE::TESObjectCELL*, RE::NiPoint3*, bool);
+	REL::Relocation<func_loadSystem2_t>unloadCurrentLocation{ REL::ID(46037) };
+
+	unloadCurrentLocation(RE::TES::GetSingleton(), RE::PlayerCharacter::GetSingleton()->parentCell, &a3, 1);
 
 	using func_unkfunc_t = void* (RE::TESObjectREFR**, RE::BGSLocation*, RE::BGSLocation*);
 	REL::Relocation<func_unkfunc_t>unkfunc{ REL::ID(64046) };

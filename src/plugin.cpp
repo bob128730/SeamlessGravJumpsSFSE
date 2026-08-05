@@ -73,6 +73,26 @@ void manualLoadSystem(RE::TESObjectREFR* ship)
 	}
 }
 
+void toggleFrameDraw(bool enable) //kinda dumb but eh
+{
+	uintptr_t addr = REL::Relocation<uintptr_t>(REL::ID(143837)).address();
+	void* call = (void*)(addr + 0x79);
+
+	int8_t instruction[3];
+
+	if (enable)
+	{
+		int8_t callRax38[3] = { 0xFF, 0x50, 0x38 };
+		memcpy(instruction, callRax38, 3);
+	}
+	else {
+		int8_t nop[3] = { 0x90, 0x90, 0x90 };
+		memcpy(instruction, nop, 3);
+	}
+
+	REL::WriteSafeData(call, instruction);
+}
+
 class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent> 
 {
 	RE::BSEventNotifyControl ProcessEvent(const RE::Spaceship::GravJumpEvent& event, RE::BSTEventSource<RE::Spaceship::GravJumpEvent>* a_source)
@@ -98,6 +118,8 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 
 			if (event.state == 2)
 			{
+				toggleFrameDraw(false);
+
 				manualLoadSystem(ship);
 				updateDiscoveryInfo(ship);
 
@@ -107,6 +129,7 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 
 				attatchObjectToCell(GalaxyCell, ship, 0, 0);
 
+				toggleFrameDraw(true);
 				jumpComplete = true;
 			}
 		}
@@ -114,8 +137,12 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 		{
 			if (event.state == 2) 
 			{
+				toggleFrameDraw(false);
+
 				manualLoadSystem(ship);
 				updateDiscoveryInfo(ship);
+
+				toggleFrameDraw(true);
 				jumpStarted = false;
 			}
 		}

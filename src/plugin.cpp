@@ -48,6 +48,12 @@ void manualLoadSystem(RE::TESObjectREFR* ship)
 
 	unloadCurrentLocation(RE::TES::GetSingleton(), RE::PlayerCharacter::GetSingleton()->parentCell, &a3, 1);
 
+	using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
+	REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
+	RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
+
+	attatchObjectToCell(GalaxyCell, ship, 0, 0);
+
 	using func_unkfunc_t = void* (RE::TESObjectREFR**, RE::BGSLocation*, RE::BGSLocation*);
 	REL::Relocation<func_unkfunc_t>unkfunc{ REL::ID(64046) };
 
@@ -123,12 +129,6 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 				manualLoadSystem(ship);
 				updateDiscoveryInfo(ship);
 
-				using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
-				REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
-				RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
-
-				attatchObjectToCell(GalaxyCell, ship, 0, 0);
-
 				toggleFrameDraw(true);
 				jumpComplete = true;
 			}
@@ -173,12 +173,6 @@ namespace hooks
 			RE::TESObjectREFR* ship = player->GetSpaceship();
 			manualLoadSystem(ship);
 			updateDiscoveryInfo(ship);
-
-			using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
-			REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
-			RE::TESObjectCELL* GalaxyCell = (RE::TESObjectCELL*)RE::TESObjectCELL::LookupByID(0x18343);
-
-			attatchObjectToCell(GalaxyCell, ship, 0, 0);
 
 			jumpStarted = false;
 		}

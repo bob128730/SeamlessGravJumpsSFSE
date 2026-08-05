@@ -221,10 +221,7 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 
 		int8_t nopcall[5] = { 0x90, 0x90, 0x90, 0x90, 0x90 };
 
-		DWORD OldProtect;
-		VirtualProtect(addCellToLoaderCall, 5, PAGE_EXECUTE_READWRITE, &OldProtect);
-		memcpy_s(addCellToLoaderCall, 5, nopcall, 5);
-		VirtualProtect(addCellToLoaderCall, 5, OldProtect, &OldProtect);
+		REL::WriteSafeData(addCellToLoaderCall,nopcall);
 
 		if (settings.DisableJumpCam) 
 		{
@@ -232,9 +229,7 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 			void* shouldStartGravCam = (void*)(initiateGravJumpSequence + 0x4e4);
 			byte jmp = 0xEB;
 
-			VirtualProtect(shouldStartGravCam, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
-			memcpy_s(shouldStartGravCam, 1, &jmp, 1);
-			VirtualProtect(shouldStartGravCam, 5, OldProtect, &OldProtect);
+			REL::WriteSafeData(shouldStartGravCam, &jmp);
 		}
 
 		hooks::install();

@@ -129,7 +129,6 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 				manualLoadSystem(ship);
 				updateDiscoveryInfo(ship);
 
-				toggleFrameDraw(true);
 				jumpComplete = true;
 			}
 		}
@@ -165,6 +164,24 @@ namespace hooks
 	using func_registerForDistanceLessThanEvent_t = void*(void *, void *, void *, void *, bool, float, uint32_t);
 	func_registerForDistanceLessThanEvent_t* original_registerForDistanceLessThanEvent;
 
+	using func_PCUpdate_t = void(RE::PlayerCharacter*, float);
+	func_PCUpdate_t* original_PCUpdate;
+
+	float timer = 0.0f;
+	void hook_PCUpdate(RE::PlayerCharacter* player, float dt)
+	{
+		if (jumpComplete) {
+			timer += dt;
+			if (timer >= 0.07f)
+			{
+				toggleFrameDraw(true);
+				jumpComplete = false;
+				timer = 0.0f;
+
+			}
+		}
+		original_PCUpdate(player, dt);
+	}
 	void hook_playerMoveTo(RE::PlayerCharacter* player, void *a2, RE::TESObjectCELL* cell, RE::TESWorldSpace* worldspace, float* a5, void* a6) 
 	{
 		if (jumpStarted) 
@@ -208,14 +225,18 @@ namespace hooks
 	{
 		uintptr_t addr = REL::Relocation<uintptr_t>( REL::ID(118183)).address();
 		uintptr_t addr2 = REL::Relocation<uintptr_t>(REL::ID(117400)).address();
+		uintptr_t addr3 = REL::Relocation<uintptr_t>(REL::ID(99411)).address();
 		uintptr_t addr4 = REL::Relocation<uintptr_t>(REL::ID(117757)).address();
 
 		uintptr_t MoveToCall = addr + 0xbb6;
 		uintptr_t shipHudHideCall = addr2 + 0x56;
+		uintptr_t PCUpdateCall = addr3 + 0xe2;
 		uintptr_t registerForDistanceLessThanEventCall = addr4 + 0x1bd;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
 		tramp.create(128);
+
+		original_PCUpdate = (func_PCUpdate_t*)tramp.write_call<5>(PCUpdateCall, hook_PCUpdate);
 
 		if (settings.GravLanesSupport) {
 			original_playerMoveTo = (func_playerMoveTo_t*)tramp.write_call<5>(MoveToCall, hook_playerMoveTo);

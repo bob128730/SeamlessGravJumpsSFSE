@@ -102,8 +102,6 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 	{
 		RE::TESObjectREFR* ship = event.ship.get();
 
-		RE::Actor* pilot = ship->GetSpaceshipPilot();
-
 		const char* location = "";
 
 		if (event.destination)
@@ -111,7 +109,7 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 			location = event.destination->formEditorID.c_str();
 		}
 
-		if (pilot->formID == RE::PlayerCharacter::GetSingleton()->formID)
+		if (ship == RE::PlayerCharacter::GetSingleton()->GetSpaceship())
 		{
 			REX::INFO("Grav jump event");
 			REX::INFO("State: {}", event.state);
@@ -127,19 +125,6 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 				updateDiscoveryInfo(ship);
 
 				jumpComplete = true;
-			}
-		}
-		else if (ship->HasKeyword((RE::BGSKeyword*)RE::TESForm::LookupByID(0x101da7))) //jade swan keyword
-		{
-			if (event.state == 2) 
-			{
-				toggleFrameDraw(false);
-
-				manualLoadSystem(ship);
-				updateDiscoveryInfo(ship);
-
-				toggleFrameDraw(true);
-				jumpStarted = false;
 			}
 		}
 

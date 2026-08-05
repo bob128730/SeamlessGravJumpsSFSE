@@ -32,9 +32,6 @@ void manualLoadSystem(RE::TESObjectREFR* ship)
 	using func_removeObjectFromCell_t = void(RE::TESObjectCELL*, RE::TESObjectREFR*, bool);
 	REL::Relocation<func_removeObjectFromCell_t>removeObjectFromCell{ REL::ID(62697) };
 
-	RE::TESObjectCELL* parentCell = ship->parentCell;
-	removeObjectFromCell(parentCell, ship, false);
-
 	prevLocation = ship->GetCurrentLocation();
 
 	loadSystem(ship, ship->parentCell, 0, 0);

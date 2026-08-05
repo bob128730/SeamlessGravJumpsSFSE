@@ -29,21 +29,11 @@ void manualLoadSystem(RE::TESObjectREFR* ship)
 	using func_loadSystem_t = int(RE::TESObjectREFR*, RE::TESObjectCELL*, bool, double);
 	REL::Relocation<func_loadSystem_t>loadSystem{ REL::ID(102641) };
 
-	using func_removeObjectFromCell_t = void(RE::TESObjectCELL*, RE::TESObjectREFR*, bool);
-	REL::Relocation<func_removeObjectFromCell_t>removeObjectFromCell{ REL::ID(62697) };
-
 	prevLocation = ship->GetCurrentLocation();
 
 	loadSystem(ship, ship->parentCell, 0, 0);
 
 	newLocation = ship->GetCurrentLocation();
-
-	RE::NiPoint3 a3{ 0,0,0 };
-
-	using func_loadSystem2_t = void* (RE::TES*, RE::TESObjectCELL*, RE::NiPoint3*, bool);
-	REL::Relocation<func_loadSystem2_t>unloadCurrentLocation{ REL::ID(46037) };
-
-	unloadCurrentLocation(RE::TES::GetSingleton(), RE::PlayerCharacter::GetSingleton()->parentCell, &a3, 1);
 
 	using func_attatchObjectToCell_t = double(RE::TESObjectCELL*, RE::TESObjectREFR*, bool, bool);
 	REL::Relocation<func_attatchObjectToCell_t>attatchObjectToCell{ REL::ID(63034) };
@@ -122,7 +112,6 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 				toggleFrameDraw(false);
 
 				manualLoadSystem(ship);
-				updateDiscoveryInfo(ship);
 
 				jumpComplete = true;
 			}
@@ -157,6 +146,7 @@ namespace hooks
 			if (timer >= 0.07f)
 			{
 				toggleFrameDraw(true);
+				updateDiscoveryInfo(player->GetSpaceship());
 				jumpComplete = false;
 				timer = 0.0f;
 

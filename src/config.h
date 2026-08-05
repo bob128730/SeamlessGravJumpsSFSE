@@ -2,9 +2,7 @@
 
 const char* defaultConfigFile =
 "[Config]\n\
-DisableJumpCam = true\n\n\
-[Compatibility]\n\
-GravLanesSupport = false\n\0";
+DisableJumpCam = true\n\0";
 
 struct config 
 {
@@ -33,14 +31,12 @@ struct config
 				return;
 			}
 			this->DisableJumpCam = reader.GetBoolean("Config", "DisableJumpCam", true);
-			this->GravLanesSupport = reader.GetBoolean("Compatibility", "GravLanesSupport", false);
 
 			fclose(file);
 		}
 
 		REX::INFO("Config:");
 		REX::INFO("DisableJumpCam: {}", this->DisableJumpCam);
-		REX::INFO("GravLanesSupport: {}", this->GravLanesSupport);
 		REX::INFO("-----------------------------------------------------------------");
 	}
 

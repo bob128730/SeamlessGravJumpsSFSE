@@ -170,7 +170,7 @@ namespace hooks
 		if (jumpStarted) 
 		{
 			REX::INFO("Astrogate / Grav lanes grav jump called");
-			RE::TESObjectREFR* ship = player->GetSpaceship();
+			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
 			manualLoadSystem(ship);
 			updateDiscoveryInfo(ship);
 
@@ -250,9 +250,19 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 			void* shouldStartGravCam = (void*)(initiateGravJumpSequence + 0x4e4);
 			byte jmp = 0xEB;
 
-			REL::WriteSafeData(shouldStartGravCam, &jmp);
+			REL::WriteSafeData(shouldStartGravCam, jmp);
 		}
 
+		RE::BSSimpleList<RE::TESFile*> *files = (RE::BSSimpleList<RE::TESFile*> *)((uintptr_t)RE::TESDataHandler::GetSingleton() + 0x1570); //commonlib is wrong and i cba to fix it
+
+		for (auto i : *files)
+		{
+			if (!strcmp(i->fileName, "Astrogate.esm") || !strcmp(i->fileName, "Grav Lanes.esm"))
+			{
+				settings.GravLanesSupport = true;
+				REX::INFO("Grav lanes / Astrogate detected");
+			}
+		}
 		hooks::install();
 	}
 }

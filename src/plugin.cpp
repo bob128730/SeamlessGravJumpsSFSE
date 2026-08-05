@@ -231,7 +231,6 @@ namespace hooks
 		uintptr_t registerForDistanceLessThanEventCall = addr4 + 0x1bd;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
-		tramp.create(128);
 
 		original_PCUpdate = (func_PCUpdate_t*)tramp.write_call<5>(PCUpdateCall, hook_PCUpdate);
 

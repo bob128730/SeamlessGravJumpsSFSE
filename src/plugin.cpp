@@ -105,15 +105,17 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 			REX::INFO("State: {}", event.state);
 			REX::INFO("Jump destination: {}", location);
 
-			jumpStarted = true;
-
-			if (event.state == 2)
+			if(event.state == 0)
+				jumpStarted = true;
+			
+			if (event.state == 2 && jumpStarted)
 			{
 				toggleFrameDraw(false);
 
 				manualLoadSystem(ship);
 
 				jumpComplete = true;
+				jumpStarted = false;
 			}
 		}
 

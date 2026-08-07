@@ -105,6 +105,11 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 			REX::INFO("State: {}", event.state);
 			REX::INFO("Jump destination: {}", location);
 			
+			float avi = ship->GetActorValue(*(RE::ActorValueInfo*)RE::TESForm::LookupByID(0x821d)); //SpaceshipGravJumpInitiated
+			if (event.state == 0 && avi > 0.0f)
+			{
+				jumpStarted = true;
+			}
 			if (event.state == 2 && jumpStarted)
 			{
 				toggleFrameDraw(false);
@@ -136,9 +141,6 @@ namespace hooks
 
 	using func_PCUpdate_t = void(RE::PlayerCharacter*, float);
 	func_PCUpdate_t* original_PCUpdate;
-
-	using func_initiateGravJumpSequence_t = void(RE::TESObjectREFR *);
-	func_initiateGravJumpSequence_t* original_initiateGravJumpSequence;
 
 	float timer = 0.0f;
 	void hook_PCUpdate(RE::PlayerCharacter* player, float dt)
@@ -195,32 +197,21 @@ namespace hooks
 		return original_registerForDistanceLessThanEvent(a1, a2, a3, a4, a5, distance, a7);
 	}
 
-	void hook_initiateGravJumpSequence(RE::TESObjectREFR* ship)
-	{
-		if (RE::PlayerCharacter::GetSingleton()->GetSpaceship() == ship)
-			jumpStarted = true;
-
-		original_initiateGravJumpSequence(ship);
-	}
-
 	void install() 
 	{
 		uintptr_t addr = REL::Relocation<uintptr_t>( REL::ID(118183)).address();
 		uintptr_t addr2 = REL::Relocation<uintptr_t>(REL::ID(117400)).address();
 		uintptr_t addr3 = REL::Relocation<uintptr_t>(REL::ID(99411)).address();
 		uintptr_t addr4 = REL::Relocation<uintptr_t>(REL::ID(117757)).address();
-		uintptr_t addr5 = REL::Relocation<uintptr_t>(REL::ID(119862)).address();
 
 		uintptr_t MoveToCall = addr + 0xbb6;
 		uintptr_t shipHudHideCall = addr2 + 0x56;
 		uintptr_t PCUpdateCall = addr3 + 0xe2;
 		uintptr_t registerForDistanceLessThanEventCall = addr4 + 0x1bd;
-		uintptr_t initiateGravJumpSequenceCall = addr5 + 0x2d5;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
 
 		original_PCUpdate = (func_PCUpdate_t*)tramp.write_call<5>(PCUpdateCall, hook_PCUpdate);
-		original_initiateGravJumpSequence = (func_initiateGravJumpSequence_t*)tramp.write_call<5>(initiateGravJumpSequenceCall, hook_initiateGravJumpSequence);
 
 		if (settings.GravLanesSupport) {
 			original_playerMoveTo = (func_playerMoveTo_t*)tramp.write_call<5>(MoveToCall, hook_playerMoveTo);
@@ -260,14 +251,17 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 
 		RE::BSSimpleList<RE::TESFile*> *files = (RE::BSSimpleList<RE::TESFile*> *)((uintptr_t)RE::TESDataHandler::GetSingleton() + 0x1570); //commonlib is wrong and i cba to fix it
 
+		REX::INFO("Loaded plugins:");
 		for (auto i : *files)
 		{
+			REX::INFO("{}", i->fileName);
 			if (!strcmp(i->fileName, "Astrogate.esm") || !strcmp(i->fileName, "Grav Lanes.esm"))
 			{
 				settings.GravLanesSupport = true;
 				REX::INFO("Grav lanes / Astrogate detected");
 			}
 		}
+		REX::INFO("----------------------------------------------------------------");
 		hooks::install();
 	}
 }

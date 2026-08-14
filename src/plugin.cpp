@@ -255,7 +255,7 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 		for (auto i : *files)
 		{
 			REX::INFO("{}", i->fileName);
-			if (!strcmp(i->fileName, "Astrogate.esm") || !strcmp(i->fileName, "Grav Lanes.esm"))
+			if (!stricmp(i->fileName, "Astrogate.esm") || !stricmp(i->fileName, "Grav Lanes.esm") || !stricmp(i->fileName, "qog-starsim.esm"))
 			{
 				settings.GravLanesSupport = true;
 				REX::INFO("Grav lanes / Astrogate detected");

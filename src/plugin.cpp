@@ -137,7 +137,8 @@ namespace hooks
 	}
 	void hook_playerMoveTo(RE::PlayerCharacter* player, void *a2, RE::TESObjectCELL* cell, RE::TESWorldSpace* worldspace, float* a5, void* a6) 
 	{
-		if (jumpStarted) 
+		float avi = RE::PlayerCharacter::GetSingleton()->GetSpaceship()->GetActorValue(*(RE::ActorValueInfo*)RE::TESForm::LookupByID(0x821d)); //SpaceshipGravJumpInitiated
+		if (jumpStarted || avi > 0.0f) 
 		{
 			REX::INFO("Astrogate / Grav lanes grav jump called");
 			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();

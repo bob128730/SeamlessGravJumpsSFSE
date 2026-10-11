@@ -7,6 +7,7 @@ config settings;
 RE::BGSLocation* prevLocation;
 RE::BGSLocation* newLocation;
 
+bool g_frameDraw = true;
 void updateDiscoveryInfo(RE::TESObjectREFR* ship) 
 {
 
@@ -92,6 +93,7 @@ class GravJumpEventSink : public RE::BSTEventSink<RE::Spaceship::GravJumpEvent>
 			}
 			if (event.state == 2 && jumpStarted)
 			{
+				g_frameDraw = false;
 				manualLoadSystem(ship);
 
 				jumpComplete = true;
@@ -123,6 +125,17 @@ namespace hooks
 	using func_ModelReferenceEffect_spawn_t = void(RE::TESObjectREFR*, RE::BGSArtObject *, float, RE::TESObjectREFR *, int, int);
 	func_ModelReferenceEffect_spawn_t* original_ModelReferenceEffect_spawn;
 
+	using func_endFrame_t = void(uintptr_t, void*);
+	func_endFrame_t* original_endFrame;
+
+	void hook_endFrame(uintptr_t execList, void* waitHandler)
+	{
+		if (!g_frameDraw)
+			*(uint32_t*)(execList + 0x210) = 0;
+
+		original_endFrame(execList, waitHandler);
+	}
+
 	float timer = 0.0f;
 	void hook_PCUpdate(RE::PlayerCharacter* player, float dt)
 	{
@@ -131,6 +144,7 @@ namespace hooks
 			if (timer >= 0.07f)
 			{
 				updateDiscoveryInfo(player->GetSpaceship());
+				g_frameDraw = true;
 				jumpComplete = false;
 				timer = 0.0f;
 
@@ -146,6 +160,8 @@ namespace hooks
 			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
 			manualLoadSystem(ship);
 			updateDiscoveryInfo(ship);
+
+			g_frameDraw = true;
 
 			using func_stopGravJumpEffect_t = void(RE::TESObjectREFR *, RE::BGSArtObject *);
 			REL::Relocation<func_stopGravJumpEffect_t>stopGravJumpEffect{ REL::ID(119838) };
@@ -198,16 +214,19 @@ namespace hooks
 		uintptr_t addr3 = REL::Relocation<uintptr_t>(REL::ID(99411)).address();
 		uintptr_t addr4 = REL::Relocation<uintptr_t>(REL::ID(117757)).address();
 		uintptr_t addr5 = REL::Relocation<uintptr_t>(REL::ID(114496)).address();
+		uintptr_t addr6 = REL::Relocation<uintptr_t>(REL::ID(99417)).address();
 
 		uintptr_t MoveToCall = addr + 0xbb6;
 		uintptr_t shipHudHideCall = addr2 + 0x56;
 		uintptr_t PCUpdateCall = addr3 + 0xe2;
 		uintptr_t registerForDistanceLessThanEventCall = addr4 + 0x1bd;
 		uintptr_t ModelReferenceEffect_spawnCall = addr5 + 0xf6;
+		uintptr_t endFrameCall = addr6 + 0x2DE;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
 
 		original_PCUpdate = (func_PCUpdate_t*)tramp.write_call<5>(PCUpdateCall, hook_PCUpdate);
+		original_endFrame = (func_endFrame_t*)tramp.write_call<5>(endFrameCall, hook_endFrame);
 
 		if (settings.GravLanesSupport || settings.StarsimSupport) {
 			original_playerMoveTo = (func_playerMoveTo_t*)tramp.write_call<5>(MoveToCall, hook_playerMoveTo);

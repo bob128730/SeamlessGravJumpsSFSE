@@ -120,6 +120,9 @@ namespace hooks
 	using func_PCUpdate_t = void(RE::PlayerCharacter*, float);
 	func_PCUpdate_t* original_PCUpdate;
 
+	using func_ModelReferenceEffect_spawn_t = void(RE::TESObjectREFR*, RE::BGSArtObject *, float, RE::TESObjectREFR *, int, int);
+	func_ModelReferenceEffect_spawn_t* original_ModelReferenceEffect_spawn;
+
 	float timer = 0.0f;
 	void hook_PCUpdate(RE::PlayerCharacter* player, float dt)
 	{
@@ -137,17 +140,17 @@ namespace hooks
 	}
 	void hook_playerMoveTo(RE::PlayerCharacter* player, void *a2, RE::TESObjectCELL* cell, RE::TESWorldSpace* worldspace, float* a5, void* a6) 
 	{
-		float avi = 0.0f;
-		RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
-		if(ship)
-			avi = ship->GetActorValue(*(RE::ActorValueInfo*)RE::TESForm::LookupByID(0x821d)); //SpaceshipGravJumpInitiated
-		if (jumpStarted || avi > 0.0f) 
+		if (jumpStarted) 
 		{
 			REX::INFO("Astrogate / Grav lanes grav jump called");
 			RE::TESObjectREFR* ship = RE::PlayerCharacter::GetSingleton()->GetSpaceship();
 			manualLoadSystem(ship);
 			updateDiscoveryInfo(ship);
 
+			using func_stopGravJumpEffect_t = void(RE::TESObjectREFR *, RE::BGSArtObject *);
+			REL::Relocation<func_stopGravJumpEffect_t>stopGravJumpEffect{ REL::ID(119838) };
+
+			stopGravJumpEffect(ship, nullptr);
 			jumpStarted = false;
 		}
 		else 
@@ -178,27 +181,44 @@ namespace hooks
 		return original_registerForDistanceLessThanEvent(a1, a2, a3, a4, a5, distance, a7);
 	}
 
+	void hook_ModelReferenceEffect_spawn(RE::TESObjectREFR* object, RE::BGSArtObject* effect, float time, RE::TESObjectREFR* facingObject, int a5, int a6)
+	{
+		if (effect->formID == 0xC791 && object == RE::PlayerCharacter::GetSingleton()->GetSpaceship())
+		{
+			jumpStarted = true;
+			REX::INFO("Starsim gate entered");
+		}
+		original_ModelReferenceEffect_spawn(object, effect, time, facingObject, a5, a6);
+	}
+
 	void install() 
 	{
 		uintptr_t addr = REL::Relocation<uintptr_t>( REL::ID(118183)).address();
 		uintptr_t addr2 = REL::Relocation<uintptr_t>(REL::ID(117400)).address();
 		uintptr_t addr3 = REL::Relocation<uintptr_t>(REL::ID(99411)).address();
 		uintptr_t addr4 = REL::Relocation<uintptr_t>(REL::ID(117757)).address();
+		uintptr_t addr5 = REL::Relocation<uintptr_t>(REL::ID(114496)).address();
 
 		uintptr_t MoveToCall = addr + 0xbb6;
 		uintptr_t shipHudHideCall = addr2 + 0x56;
 		uintptr_t PCUpdateCall = addr3 + 0xe2;
 		uintptr_t registerForDistanceLessThanEventCall = addr4 + 0x1bd;
+		uintptr_t ModelReferenceEffect_spawnCall = addr5 + 0xf6;
 
 		REL::Trampoline &tramp = REL::GetTrampoline();
 
 		original_PCUpdate = (func_PCUpdate_t*)tramp.write_call<5>(PCUpdateCall, hook_PCUpdate);
 
-		if (settings.GravLanesSupport) {
+		if (settings.GravLanesSupport || settings.StarsimSupport) {
 			original_playerMoveTo = (func_playerMoveTo_t*)tramp.write_call<5>(MoveToCall, hook_playerMoveTo);
 			original_shipHudHide = (func_shipHudHide_t*)tramp.write_call<5>(shipHudHideCall, hook_shipHudHide);
 			original_registerForDistanceLessThanEvent = (func_registerForDistanceLessThanEvent_t*)tramp.write_call<5>(registerForDistanceLessThanEventCall, hook_registerForDistanceLessThanEvent);
 		}
+		if (settings.StarsimSupport)
+		{
+			original_ModelReferenceEffect_spawn = (func_ModelReferenceEffect_spawn_t*)tramp.write_call<5>(ModelReferenceEffect_spawnCall, hook_ModelReferenceEffect_spawn);
+		}
+
 	}
 }
 
@@ -238,13 +258,18 @@ void OnMessage(SFSE::MessagingInterface::Message* message)
 			REX::INFO("{}", i->fileName);
 			if (!stricmp(i->fileName, "Astrogate.esm") 
 				|| !stricmp(i->fileName, "Grav Lanes.esm") 
-				|| !stricmp(i->fileName, "qog-starsim.esm") 
 				|| !stricmp(i->fileName, "FTL.esm"))
 			{
 				settings.GravLanesSupport = true;
 				REX::INFO("Grav lanes / Astrogate detected");
 			}
+			else if (!stricmp(i->fileName, "qog-starsim.esm"))
+			{
+				settings.StarsimSupport = true;
+				REX::INFO("Starsim detected");
+			}
 		}
+
 		REX::INFO("----------------------------------------------------------------");
 		hooks::install();
 	}

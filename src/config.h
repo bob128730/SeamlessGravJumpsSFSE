@@ -42,4 +42,5 @@ struct config
 
 	bool DisableJumpCam = 1;
 	bool GravLanesSupport = 0;
+	bool StarsimSupport = 0;
 };
